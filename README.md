@@ -7,7 +7,7 @@ The algorithms utilize least squares method estimation to find optimal parameter
 The project is divided into two main modules:
 
 ### 1. Polynomial Surface Fitting & Model Order Selection
-Goal: Approximate a 3D surface ($y = f(x_1, x_2)$) using polynomial basis functions.
+Goal: Approximate a 3D surface using polynomial basis functions.
 Key Features:
     * Iteratively tests polynomial degrees
     * Calculates Mean Squared Error (MSE) for both datasets.
