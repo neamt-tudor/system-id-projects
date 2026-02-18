@@ -1,0 +1,400 @@
+clc;
+clear;
+close all;
+
+load("iddata-12.mat");
+
+%DATA
+u_id=id.InputData{:};
+y_id=id.OutputData{:};
+Tsi=id.Ts{:};
+
+u_val=val.InputData{:};
+y_val=val.OutputData{:};
+Tsv=val.Ts{:};
+
+%% 1. plots
+
+
+figure;
+
+subplot(2,1,1);
+plot(u_id); title("Iden Inp");
+subplot(2,1,2);
+plot(y_id); title("Iden Out");
+
+
+
+figure;
+
+subplot(2,1,1);
+plot(u_val); title("Val Inp");
+subplot(2,1,2);
+plot(y_val); title("Val Out");
+
+%% param
+
+
+na=2; %Output    
+nb=2; %input     
+nk=1; %delay     
+m=3; %degree
+
+
+
+%% 3.id training
+
+
+N_id=length(y_id); %nr of rows
+k0=max(na, nb)+nk;
+nAnB=na+nb;
+
+
+%columns
+colm=1;           
+colm =colm+nAnB; 
+
+%sizing phi
+if m>=2
+  colm=colm+(nAnB*(nAnB+1)/2);
+end
+if m>=3
+  colm=colm+(nAnB*(nAnB+1)*(nAnB+2)/6);
+end
+
+phi=zeros(N_id,colm);
+idxMAX=0;
+
+
+
+for k=1:N_id
+   
+    indx =1;
+    d=[];
+    
+    %constant
+    phi(k, indx)=1; 
+    indx=indx+1;
+    
+    %past outputs(y_id)
+    for i=1:na
+      if (k-i>=1)
+            tv=y_id(k-i);
+        else
+            tv=0;
+        end
+        phi(k, indx)=tv;
+        d=[d,tv]; 
+        indx=indx+1;
+    end
+    
+    %past inp(u_id)
+    for j=1:nb
+      if (k-j>=1)
+            tv=u_id(k-j);
+        else
+            tv=0;
+        end
+        phi(k, indx)=tv;
+        d=[d,tv]; 
+        indx =indx+1;
+    end
+    
+    %nonlinear
+    
+    %degree 2
+    if (m>=2)
+        for i=1:length(d)
+            for j=i:length(d)
+                phi(k, indx)=d(i)*d(j);
+                indx=indx+1;
+            end
+        end
+    end
+    
+    %degree 3
+    if (m>=3)
+      for i=1:length(d)
+
+          for j=i:length(d)
+
+              for l=j:length(d)
+                    phi(k,indx)=d(i)*d(j) *d(l);
+                    indx=indx+1;
+              end
+
+            end
+
+        end
+    end
+    
+    
+    idxMAX=indx-1;
+
+end
+
+%param
+theta=phi(k0:end, :)  \  y_id(k0:end);
+
+
+%prediction ind
+y_id_pred=phi*theta; 
+
+%% 4.simulation iden
+
+y_id_sim=zeros(N_id, 1);
+y_id_sim(1:na)=y_id(1:na); 
+
+for k=na+1:N_id
+    
+    phi2=zeros(1,colm);
+
+    indx=1;
+    d=[];
+    
+    phi2(indx)=1;
+    indx=indx+1;
+    
+
+    %linear y
+    for i=1:na
+        tv=y_id_sim(k-i);
+        phi2(indx)=tv;
+        d=[d,tv];
+      indx =indx+1;
+    end
+    
+    %linear u
+    for j=1:nb
+      if (k-j>=1)
+           tv=u_id(k-j);
+        else
+            tv=0;
+      end
+        phi2(indx)=tv;
+        d =[d, tv];
+      indx=indx+1;
+    end
+    
+    %nonlinear
+    if (m>=2)
+      for i=1:length(d)
+          for j=i:length(d)
+
+                phi2(indx)=d(i)*d(j);
+                indx=indx+1;
+
+         end
+        end
+    end
+
+
+    if (m>=3)
+     for i=1:length(d)
+
+         for j=i:length(d)
+
+             for l=j:length(d)
+
+                    phi2(indx)=d(i) *d(j)*d(l);
+                    indx=indx+1;
+
+            end
+        end
+       end
+    end
+    
+    y_id_sim(k)=phi2*theta;
+end
+
+%% 5. prediction val
+
+
+N_val=length(y_val);
+y_pred=zeros(N_val, 1);
+
+for k=1:N_val
+    
+    phi2=zeros(1,colm);
+    indx=1;
+    d=[];
+    
+    phi2(indx)=1;
+    indx=indx+1;
+    
+    %linear y 
+    for i=1:na
+        if (k-i>=1)
+            tv=y_val(k-i); 
+        else
+            tv=0; 
+        end
+        phi2(indx)=tv; 
+        d=[d,tv]; 
+        indx=indx+1;
+    end
+    
+    %linear u
+    for j=1:nb
+        if k-j>=1 
+            tv=u_val(k-j); 
+        else 
+            tv=0; 
+        end
+        phi2(indx)=tv; 
+        d=[d, tv]; 
+        indx=indx+1;
+    end
+    
+     %nonlinear
+    if (m >= 2)
+     for i=1:length(d)
+          for j=i:length(d)
+                phi2(indx)=d(i)*d(j); indx=indx+1;
+          end
+       end
+    end
+
+
+
+    if (m>=3)
+        for i =1:length(d)
+            
+            for j =i:length(d)
+              for l =j:length(d)
+                    
+                  phi2(indx)=d(i) *d(j) *d(l);
+                    indx=indx+1;
+              end
+           end
+       end
+  end
+    
+  y_pred(k)=phi2*theta; %y predicted for val
+end
+
+%% 6.simulation val
+
+y_sim=zeros(N_val, 1);
+y_sim(1:na)=y_val(1:na); 
+
+for k=na+1:N_val
+    
+
+    phi2=zeros(1,colm);
+    indx=1;
+    d=[];
+    
+
+    phi2(indx)=1;
+    indx=indx+1;
+    
+    %y
+    for i=1:na
+        tv=y_sim(k-i);
+        phi2(indx)=tv;
+        d=[d,tv];
+
+        indx=indx+1;
+    end
+    
+    %U 
+    for j=1:nb
+        if (k -j>=1)
+            tv=u_val(k-j);
+        else
+            tv =0;
+        end
+
+
+        phi2(indx)=tv;
+        d=[d, tv];
+        indx=indx+1;
+    end
+    
+    %nonlineaar
+    if (m>=2)
+      for i=1:length(d)
+            
+            for j=i:length(d)
+              phi2(indx)=d(i)*d(j);
+             indx=indx+1;
+            
+            end
+      end
+    end
+
+
+
+    if (m>=3)
+       
+        for i=1:length(d)
+            
+          for j=i:length(d)
+           for l=j:length(d)
+
+                    phi2(indx)= d(i)*d(j) *d(l);
+                    indx=indx+1;
+                
+           end
+            
+         end
+        
+      end
+    end
+    
+   y_sim(k)=phi2*theta; % y simulated for val
+end
+
+%% 7.plotting results
+
+%MSE
+
+
+%Iden
+MSEid_pred=mean((y_id(k0:end)-y_id_pred(k0:end)).^2);
+MSEid_sim=mean((y_id(k0:end)-y_id_sim(k0:end)).^2);
+
+%val
+MSEval_pred=mean((y_val(k0:end)-y_pred(k0:end)).^2);
+MSEval_sim  =mean((y_val(k0:end)-y_sim(k0:end)).^2);
+
+
+
+disp("MSEs");
+MSEid_pred
+MSEid_sim
+MSEval_pred
+MSEval_sim
+
+% Plots
+
+%ID Pred
+figure;
+plot(y_id(k0:end));hold on;
+plot(y_id_pred(k0:end),"--r");grid on;
+title("Ident: pred");
+legend("real output","pred");
+
+%ID Sim
+figure;
+plot(y_id(k0:end));hold on;
+plot(y_id_sim(k0:end),"--r");grid on;
+title("ident: Sim");
+legend("real out","Sim");
+
+
+
+%val Pred
+figure;
+plot(y_val(k0:end));hold on;
+plot(y_pred(k0:end),"--r");grid on;
+title("validation: pred");
+legend("real outp","pred");
+
+%val Sim
+figure;
+plot(y_val(k0:end));hold on;
+plot(y_sim(k0:end),"--r");grid on;
+title("validation: sim");
+legend("real outp","sim");
