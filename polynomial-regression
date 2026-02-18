@@ -1,0 +1,132 @@
+load("proj_fit_23")
+
+%separated and combined so we can work with x1 and x2 
+N1_id = length(id.X{1});
+N2_id = length(id.X{2});
+
+N1_val = length(val.X{1});
+N2_val = length(val.X{2});
+
+x1_identification = repmat(id.X{1},N2_id,1);
+x2_identification = repelem(id.X{2},N1_id,1);
+
+x1_id = x1_identification(:);
+x2_id = x2_identification(:);
+
+x1_validation = repmat(val.X{1},N2_val,1);
+x2_validation = repelem(val.X{2},N1_val,1);
+
+x1_val = x1_validation(:);
+x2_val = x2_validation(:);
+
+y_id = id.Y(:);
+y_val = val.Y(:);
+
+
+%CHoosing the configurable degree(m)
+conf_m = 50;
+
+% declaring the Mean Square error
+MSE_id = zeros(conf_m,1);
+MSE_val = zeros(conf_m,1);
+
+
+% the optimum approximator 
+m_opt = 9;
+
+for m = 1:conf_m
+
+%nr of elements
+N = length(x1_id);
+%nr of elements for validation
+N_val = length(x1_val);
+
+% phi matrices
+phi = zeros(N, (m+1)*(m+2)/2);
+phi2 = zeros(N_val,(m+1)*(m+2)/2);
+
+theta = zeros((m+1)*(m+2)/2, 1);
+
+% column indicators
+k = 1;
+k2 = 1;
+
+for i = 0:m
+    for j = 0:(m-i)
+        phi(:, k) = (x1_id.^i) .* (x2_id.^j);
+        k= k + 1;
+    end
+end
+
+
+for i = 0:m
+    for j = 0:(m-i)
+        phi2(:,k2) = (x1_val.^i) .* (x2_val.^j);
+        k2 = k2 + 1;
+    end
+end
+
+
+theta = phi\y_id;
+
+
+Y_approx = phi * theta;
+Y_approx_val = phi2 * theta;
+
+%transforming them back into matrixes
+Y_approx_matrix = reshape(Y_approx, N2_id, N1_id);
+Y_approx_val_matrix = reshape(Y_approx_val, N2_val,N1_val);
+
+%Mean Square error
+mse_id = mean((Y_approx - y_id).^2);
+MSE_id(m) = mse_id;
+mse_val = mean((Y_approx_val-y_val).^2);
+MSE_val(m) = mse_val;
+
+% storing the results for the optimum approximator
+if m == m_opt
+    Y_approx_matrix_opt = Y_approx_matrix;
+    Y_approx_matrix_val_opt = Y_approx_val_matrix;
+end
+
+end
+
+%plotting MSE
+figure
+plot(MSE_id / max(MSE_id))
+hold on
+plot(MSE_val / max(MSE_val))
+legend('MSE_{id}', 'MSE_{val}')
+
+
+%Finding the optimum m based on where the MSE is smaller
+[value,indx] = min(MSE_val)
+
+figure
+mesh(id.X{1}, id.X{2}, id.Y, 'FaceColor', 'interp', 'EdgeColor', 'none')
+hold on
+mesh(id.X{1}, id.X{2}, Y_approx_matrix, 'FaceColor', 'none', 'EdgeColor', 'r')
+title("Original vs Approximation")
+legend("Original", "Approximation")
+
+figure
+subplot(2,1,1)
+mesh(val.X{1},val.X{2},val.Y)
+title("Validation original")
+
+subplot(2,1,2)
+mesh(val.X{1},val.X{2},Y_approx_matrix_val_opt)
+title("Validation Optimum")
+
+figure
+subplot(3,1,1)
+mesh(val.X{1},val.X{2},val.Y)
+title("Validation original")
+
+figure
+
+mesh(val.X{1},val.X{2},Y_approx_val_matrix)
+title("validation")
+
+
+% if m too big -> overfitting
